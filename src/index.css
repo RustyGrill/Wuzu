@@ -30,3 +30,17 @@ html, body, #root {
   text-align: center;
 }
 
+.controls-ui {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: white;
+  font-size: 14px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+

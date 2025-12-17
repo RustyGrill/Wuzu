@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { useGLTF } from '@react-three/drei'
+import { useGLTF, useAnimations } from '@react-three/drei'
 import { Box3, Vector3, Color, Fog } from 'three'
 
 import {
@@ -16,6 +16,93 @@ useGLTF.preload('/low_poly_rock_cave.glb')
 useGLTF.preload('/present.glb')
 useGLTF.preload('/slide.glb')
 useGLTF.preload('/low_poly_bird.glb')
+useGLTF.preload('/capy.glb')
+useGLTF.preload('/wheel.glb')
+useGLTF.preload('/chick.glb')
+useGLTF.preload('/tree_house.glb')
+useGLTF.preload('/scooty.glb')
+useGLTF.preload('/hector.glb')
+
+function Scooty({WheelPos}){
+  const {scene} = useGLTF('/scooty.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+
+  return (
+    <primitive
+      object = {model}
+      position = {[WheelPos[0], 0, WheelPos[2] + 7]}
+      rotation = {[0, -Math.PI/2, 0]}
+      scale = {0.8}
+    />
+  )
+}
+
+
+function Hector({cavePos}){
+  const {scene} = useGLTF('/hector.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+
+  return (
+    <primitive
+      object = {model}
+      position = {[cavePos[0] -3, 0.3, cavePos[2] - 10]}
+      rotation = {[0, -Math.PI/2, 0]}
+      scale = {0.25}
+    />
+  )
+}
+
+function TreeHouse({ pondPos }) {
+  const { scene } = useGLTF('/tree_house.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+
+  return (
+    <primitive
+      object={model}
+      position={[
+        pondPos[0] + 5.5, // 👉 RIGHT of cave
+        -0.95,
+        pondPos[2] - 20  // 👉 slight forward so it’s visible
+      ]}
+      rotation={[0, 0, 0]}
+      scale={0.125}
+    />
+  )
+}
+
+
+function Wheel({ pondPos }) {
+  const group = useRef()
+  const { scene, animations } = useGLTF('/wheel.glb')
+  const { actions } = useAnimations(animations, group)
+
+  useEffect(() => {
+    if (!actions) return
+
+    // play ALL animations (some models have multiple clips)
+    Object.values(actions).forEach(action => {
+      action.reset().play()
+    })
+  }, [actions])
+
+  return (
+    <group
+      ref={group}
+      position={[
+        pondPos[0] - 9, // 👈 LEFT of pond (adjust if needed)
+        0,
+        pondPos[2] - 14
+      ]}
+      rotation={[0, Math.PI / 2, 0]}
+      scale={0.6}
+
+    >
+      <primitive object={scene} />
+    </group>
+  )
+}
+
+
 
 
 
@@ -45,6 +132,55 @@ function Slide({ pondPos }) {
   )
 }
 
+function Chick({ pondPos }) {
+  const { scene } = useGLTF('/chick.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+  const ref = useRef()
+
+  useFrame(({ clock }) => {
+    if (!ref.current) return
+
+    // 🐥 idle bob ONLY
+    ref.current.position.y =
+      0.15 + Math.sin(clock.getElapsedTime() * 3) * 0.05
+  })
+
+  return (
+    <primitive
+      ref={ref}
+      object={model}
+      position={[
+        pondPos[0], // 👈 left of pond (adjust if needed)
+        0.15,
+        pondPos[2] - 1
+      ]}
+      rotation={[0, -Math.PI / 2, 0]}
+      scale={0.4}
+    />
+  )
+}
+
+
+
+
+function Capy({ pondPos }) {
+  const { scene } = useGLTF('/capy.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+
+  return (
+    <primitive
+      object={model}
+      position={[
+        pondPos[0] + 5.5,  // 👉 right of slide
+        0,
+        pondPos[2] - 9     // 👉 same Z as slide
+      ]}
+      rotation={[0, Math.PI / 2, 0]}
+      scale={1.5}
+    />
+  )
+}
+
 
 
 
@@ -63,24 +199,17 @@ function Axolotl({ pos, rotY }) {
   )
 }
 
-function NPCAxolotl({ pos, playerPos }) {
+function NPCAxolotl({ pos }) {
   const { scene } = useGLTF('/axolotl.glb')
   const model = useMemo(() => scene.clone(true), [scene])
-  const ref = useRef()
-
-  useEffect(() => {
-    if (!ref.current) return
-    const dx = playerPos[0] - pos[0]
-    const dz = playerPos[2] - pos[2]
-    ref.current.rotation.y = Math.atan2(dx, dz) - Math.PI / 5
-  }, [])
 
   return (
-    <group ref={ref} position={[pos[0], 1.1, pos[2]]}>
+    <group position={[pos[0], 1.1, pos[2]]} rotation={[0, -Math.PI / 2, 0]}>
       <primitive object={model} scale={0.5} />
     </group>
   )
 }
+
 
 function Cave({ position, playerPos }) {
   const { scene } = useGLTF('/low_poly_rock_cave.glb')
@@ -312,29 +441,64 @@ function AmbientSound({ night }) {
   return null
 }
 
+function Mountains() {
+  const mountains = useRef([])
 
+  if (mountains.current.length === 0) {
+    for (let i = 0; i < 40; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const distance = 70 + Math.random() * 30
 
+      mountains.current.push({
+        x: Math.cos(angle) * distance,
+        z: Math.sin(angle) * distance,
+        height: 8 + Math.random() * 12,
+        radius: 6 + Math.random() * 6
+      })
+    }
+  }
 
+  return mountains.current.map((m, i) => (
+    <mesh key={i} position={[m.x, m.height / 2 - 2, m.z]}>
+      <coneGeometry args={[m.radius, m.height, 6]} />
+      <meshStandardMaterial
+        color="#2e3f2e"
+        roughness={1}
+        flatShading
+      />
+    </mesh>
+  ))
+}
 
 
 
 
 export default function App() {
-  const [pos, setPos] = useState([0, 0, 0])
-  const [rotY, setRotY] = useState(Math.PI)
+  const [pos, setPos] = useState([0, 0, -5])
+  const [rotY, setRotY] = useState(-Math.PI/2)
   const [night, setNight] = useState(false)
   const [mix, setMix] = useState(0)
   const [showWASD, setShowWASD] = useState(true)
+  const [controlsHidden, setControlsHidden] = useState(false)
+
   
 
   const cavePos = [6, 0, -6]
   const pondPos = [-6, 0, -4]
   const npcPos = [6, 0, -3.8]
+  const capyPos = [pondPos[0] + 5.5,0, pondPos[2] - 9]
+  const WheelPos = [pondPos[0] - 9, 0, pondPos[2] - 14]
+  const PlayerPos = [0, 0, -5]
+  const Thpos = [pondPos[0] + 5.5, -0.95, pondPos[2] - 20]
+  const ScPos = [cavePos[0] + 3, 0, cavePos[2] - 10]
 
   const nearNPC =
     Math.hypot(pos[0] - npcPos[0], pos[2] - npcPos[2]) < 2.2
   const nearPond =
     Math.hypot(pos[0] - pondPos[0], pos[2] - pondPos[2]) < 2.8
+  const nearCapy =
+  Math.hypot(pos[0] - capyPos[0], pos[2] - capyPos[2]) < 2.5
+
 
   /* 🚫 INSTANTLY HIDE WASD WHEN NEAR NPC OR POND */
   useEffect(() => {
@@ -371,6 +535,11 @@ export default function App() {
       const slidePos = [pondPos[0], pondPos[2] - 4]
       if (Math.hypot(x - slidePos[0], z - slidePos[1]) < 7) continue
 
+      if(Math.hypot(x - capyPos[0], z - capyPos[2]) < 5) continue;
+      if(Math.hypot(x - WheelPos[0], z - WheelPos[2]) < 7) continue;
+      if(Math.hypot(x - PlayerPos[0], z - PlayerPos[2]) < 10) continue;
+      if(Math.hypot(x - Thpos[0], z - Thpos[2]) < 5) continue;
+      if(Math.hypot(x - ScPos[0], z - ScPos[2]) < 5) continue;
       trees.current.push({
         pos: [x, 0, z],
         scale: 0.7 + Math.random() * 0.7
@@ -380,8 +549,13 @@ export default function App() {
   }
 
   useEffect(() => {
-    const onKey = e => {
+  const onKey = e => {
       if (e.key === 'n') setNight(v => !v)
+
+      // ✅ THIS WAS MISSING
+      if (e.key === 'h') {
+        setControlsHidden(v => !v)
+      }
 
       setPos(([x, y, z]) => {
         if (e.key === 'w') { setRotY(Math.PI / 2); return [x, y, z - 0.4] }
@@ -395,13 +569,17 @@ export default function App() {
         window.open('https://drive.google.com/YOUR_PHOTOS_LINK', '_blank')
       }
       if (e.key === 'e' && nearPond) {
-        window.open('https://YOUR_LETTER_LINK', '_blank')
+        window.open(
+          'https://docs.google.com/document/d/1SLfZ5iF28h7gaE0UykZdE98lWJnP8Q5iiQJyTV3XZBQ/edit?usp=sharing',
+          '_blank'
+        )
       }
     }
 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [nearNPC, nearPond])
+
 
   return (
     <>
@@ -440,8 +618,12 @@ export default function App() {
 
           <Axolotl pos={pos} rotY={rotY} />
           <Cave position={cavePos} playerPos={pos} />
-          <NPCAxolotl pos={npcPos} playerPos={pos} />
+          <TreeHouse pondPos={pondPos} />
+          <Hector cavePos= {cavePos}/>
+          <NPCAxolotl pos={npcPos} />
           <Present npcPos={npcPos} />
+          <Mountains />
+
 
 
           <mesh position={[pondPos[0], 0.02, pondPos[2]]} rotation-x={-Math.PI / 2}>
@@ -455,6 +637,11 @@ export default function App() {
           </mesh>
 
           <Slide pondPos={pondPos} />
+          <Capy pondPos={pondPos} playerPos={pos} nearCapy={nearCapy} />
+          <Chick pondPos={pondPos} playerPos={pos} />
+          <Wheel pondPos={pondPos} />
+          <Scooty WheelPos={WheelPos}/>
+
 
 
           {trees.current.map((t, i) => (
@@ -462,8 +649,33 @@ export default function App() {
           ))}
 
           {mix > 0.35 && <Fireflies center={cavePos} intensity={mix * 1.2} />}
+          {mix > 0.35 && (
+            <Fireflies
+              center={[
+                pondPos[0] + 5.5,
+                0.8,                 // slightly ABOVE the tree house
+                pondPos[2] - 20
+              ]}
+              intensity={mix * 1.2}
+            />
+          )}
+
         </Suspense>
       </Canvas>
+      <div className="controls-ui">
+      {!controlsHidden ? (
+        <>
+          W A S D → Move 🌱<br />
+          N → Day / Night 🌙☀️<br />
+          Press <b>H</b> to hide controls
+        </>
+      ) : (
+        <>
+          Press <b>H</b> to show controls
+        </>
+      )}
+    </div>
+
       <AmbientSound night={night} />
 
       {night && mix > 0.35 && (
@@ -472,11 +684,11 @@ export default function App() {
         </div>
       )}
 
-
-      {showWASD && (
+      {!showWASD && nearCapy && (
         <div className="ui">
-          Use <b>W A S D</b> to move 🌱 <br />
-          Press <b>N</b> for day / night
+          thats you and me btw 💖 <br />
+          you the smoler one on top with da 👑 <br />
+          cus you my princess ✨
         </div>
       )}
 
