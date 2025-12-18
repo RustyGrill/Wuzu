@@ -22,6 +22,76 @@ useGLTF.preload('/chick.glb')
 useGLTF.preload('/tree_house.glb')
 useGLTF.preload('/scooty.glb')
 useGLTF.preload('/hector.glb')
+useGLTF.preload('/waft.glb')
+useGLTF.preload('/wsign.glb')
+useGLTF.preload('/cat.glb')
+useGLTF.preload('/deer.glb')
+
+function Cat({ npcPos }) {
+  const { scene } = useGLTF('/cat.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+
+  return (
+    <primitive
+      object={model}
+      position={[npcPos[0] + 1.2, 0, npcPos[2] + 1]}
+      scale={0.025}
+      rotation={[0, 0, 0]}
+    />
+  )
+}
+
+
+function Deer({ position }) {
+  const group = useRef()
+  const { scene, animations } = useGLTF('/deer.glb')
+  const { actions } = useAnimations(animations, group)
+
+  // play animations
+  useEffect(() => {
+    if (!actions) return
+    Object.values(actions).forEach(action => {
+      action.reset().play()
+    })
+  }, [actions])
+
+  return (
+    <group ref={group} position={position} scale={1.4} rotation = {[0,Math.PI/2,0]}>
+      <primitive object={scene} />
+    </group>
+  )
+}
+
+
+
+function Waft({WheelPos}){
+  const {scene} = useGLTF('/waft.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+
+  return (
+    <primitive
+      object = {model}
+      position = {[WheelPos[0] + 35, 0.25, WheelPos[2] - 15]}
+      rotation = {[0, Math.PI/2, 0]}
+      scale = {0.007}
+    />
+  )
+}
+
+function Wsign({WheelPos}){
+  const {scene} = useGLTF('/wsign.glb')
+  const model = useMemo(() => scene.clone(true), [scene])
+
+  return (
+    <primitive
+      object = {model}
+      position = {[WheelPos[0] + 30, 0.25, WheelPos[2] - 5]}
+      rotation = {[0, Math.PI, 0]}
+      scale = {0.05}
+    />
+  )
+}
+
 
 function Scooty({WheelPos}){
   const {scene} = useGLTF('/scooty.glb')
@@ -30,7 +100,7 @@ function Scooty({WheelPos}){
   return (
     <primitive
       object = {model}
-      position = {[WheelPos[0], 0, WheelPos[2] + 7]}
+      position = {[WheelPos[0] + 5, -0.05, WheelPos[2] + 3]}
       rotation = {[0, -Math.PI/2, 0]}
       scale = {0.8}
     />
@@ -89,12 +159,12 @@ function Wheel({ pondPos }) {
     <group
       ref={group}
       position={[
-        pondPos[0] - 9, // 👈 LEFT of pond (adjust if needed)
+        pondPos[0] - 15, // 👈 LEFT of pond (adjust if needed)
         0,
-        pondPos[2] - 14
+        pondPos[2] - 20
       ]}
       rotation={[0, Math.PI / 2, 0]}
-      scale={0.6}
+      scale={1.5}
 
     >
       <primitive object={scene} />
@@ -480,6 +550,8 @@ export default function App() {
   const [mix, setMix] = useState(0)
   const [showWASD, setShowWASD] = useState(true)
   const [controlsHidden, setControlsHidden] = useState(false)
+  const [giftOpened, setGiftOpened] = useState(false)
+
 
   
 
@@ -491,6 +563,10 @@ export default function App() {
   const PlayerPos = [0, 0, -5]
   const Thpos = [pondPos[0] + 5.5, -0.95, pondPos[2] - 20]
   const ScPos = [cavePos[0] + 3, 0, cavePos[2] - 10]
+  const WftPos = [WheelPos[0] + 35, 0.25, WheelPos[2] - 15]
+  const HecPos = [cavePos[0] -3, 0.3, cavePos[2] - 10]
+  const deerPos = [-10, 0, -5]
+
 
   const nearNPC =
     Math.hypot(pos[0] - npcPos[0], pos[2] - npcPos[2]) < 2.2
@@ -511,6 +587,15 @@ export default function App() {
     const t = setTimeout(() => setShowWASD(false), 5000)
     return () => clearTimeout(t)
   }, [])
+
+  useEffect(() => {
+  if (!giftOpened) return
+  
+  const meow = new Audio('/meow.mp3')
+  meow.volume = 0.4
+  meow.play().catch(() => {})
+  } , [giftOpened])
+
 
   const trees = useRef([])
   if (trees.current.length === 0) {
@@ -536,10 +621,14 @@ export default function App() {
       if (Math.hypot(x - slidePos[0], z - slidePos[1]) < 7) continue
 
       if(Math.hypot(x - capyPos[0], z - capyPos[2]) < 5) continue;
-      if(Math.hypot(x - WheelPos[0], z - WheelPos[2]) < 7) continue;
+      if(Math.hypot(x - WheelPos[0] + 6, z - WheelPos[2] + 6) < 15) continue;
       if(Math.hypot(x - PlayerPos[0], z - PlayerPos[2]) < 10) continue;
       if(Math.hypot(x - Thpos[0], z - Thpos[2]) < 5) continue;
       if(Math.hypot(x - ScPos[0], z - ScPos[2]) < 5) continue;
+      if(Math.hypot(x - WftPos[0], z - WftPos[2]) < 20) continue;
+      if(Math.hypot(x - HecPos[0], z - HecPos[2]) < 7) continue;
+
+
       trees.current.push({
         pos: [x, 0, z],
         scale: 0.7 + Math.random() * 0.7
@@ -565,9 +654,10 @@ export default function App() {
         return [x, y, z]
       })
 
-      if (e.key === 'e' && nearNPC) {
-        window.open('https://drive.google.com/YOUR_PHOTOS_LINK', '_blank')
+      if (e.key === 'e' && nearNPC && !giftOpened) {
+        setGiftOpened(true)
       }
+
       if (e.key === 'e' && nearPond) {
         window.open(
           'https://docs.google.com/document/d/1SLfZ5iF28h7gaE0UykZdE98lWJnP8Q5iiQJyTV3XZBQ/edit?usp=sharing',
@@ -621,8 +711,14 @@ export default function App() {
           <TreeHouse pondPos={pondPos} />
           <Hector cavePos= {cavePos}/>
           <NPCAxolotl pos={npcPos} />
-          <Present npcPos={npcPos} />
+          {!giftOpened && <Present npcPos={npcPos} />}
+          {giftOpened && <Cat npcPos={npcPos} />}
+
+          <Deer position={deerPos} />
+
           <Mountains />
+          
+          <Wsign WheelPos={WheelPos}/>
 
 
 
@@ -641,6 +737,7 @@ export default function App() {
           <Chick pondPos={pondPos} playerPos={pos} />
           <Wheel pondPos={pondPos} />
           <Scooty WheelPos={WheelPos}/>
+          <Waft WheelPos={WheelPos}/>
 
 
 
@@ -688,7 +785,8 @@ export default function App() {
         <div className="ui">
           thats you and me btw 💖 <br />
           you the smoler one on top with da 👑 <br />
-          cus you my princess ✨
+          cus you my princess ✨ <br/>
+          wuzu tuzu scooty is parked ahead 🙀
         </div>
       )}
 
@@ -696,7 +794,7 @@ export default function App() {
         <div className="ui">
           Waooo! Its a Wuzulotl Happy buddayyy 🙀🙀 <br />
           It is me Tuzulotl 🥰 and this is my smol cave 🪨<br />
-          Did you go to the pond 🌊? Try going inside it 🙀 <br />
+          Did you go to the pond🌊? Chinki is also there, try going inside water 🙀 <br />
           Alsooooo i hab something for u 💖<br />
           <b>Press E</b> to open
         </div>
