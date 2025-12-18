@@ -160,7 +160,7 @@ function Wheel({ pondPos }) {
       ref={group}
       position={[
         pondPos[0] - 15, // 👈 LEFT of pond (adjust if needed)
-        0,
+        3,
         pondPos[2] - 20
       ]}
       rotation={[0, Math.PI / 2, 0]}
