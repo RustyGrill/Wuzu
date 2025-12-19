@@ -27,19 +27,56 @@ useGLTF.preload('/wsign.glb')
 useGLTF.preload('/cat.glb')
 useGLTF.preload('/deer.glb')
 
-function Cat({ npcPos }) {
+function Cat({ npcPos, playerPos, npcFollow, npcLivePos }) {
   const { scene } = useGLTF('/cat.glb')
   const model = useMemo(() => scene.clone(true), [scene])
+  const group = useRef()
+
+  // cat movement
+  const livePos = useRef([npcPos[0] + 1.2, 0, npcPos[2] + 1])
+
+  useFrame(() => {
+    if (!group.current) return
+
+    if (npcFollow) {
+
+      // 📍 FOLLOW TARGET: behind NPC  
+      const offsetDistance = -1.2  // how far behind
+      const angle = Math.atan2(
+        playerPos[0] - npcLivePos.current[0],
+        playerPos[2] - npcLivePos.current[2]
+      )
+
+      const targetX = npcLivePos.current[0] + Math.sin(angle) * offsetDistance
+      const targetZ = npcLivePos.current[2] + Math.cos(angle) * offsetDistance
+
+      const dx = targetX - livePos.current[0]
+      const dz = targetZ - livePos.current[2]
+      const dist = Math.hypot(dx, dz)
+      const speed = 0.045
+
+      if (dist > 0.5) {
+        livePos.current[0] += (dx / dist) * speed
+        livePos.current[2] += (dz / dist) * speed
+      }
+
+      group.current.rotation.y = Math.atan2(dx, dz)
+    }
+
+    group.current.position.set(
+      livePos.current[0],
+      0,
+      livePos.current[2]
+    )
+  })
 
   return (
-    <primitive
-      object={model}
-      position={[npcPos[0] + 1.2, 0, npcPos[2] + 1]}
-      scale={0.025}
-      rotation={[0, 0, 0]}
-    />
+    <group ref={group}>
+      <primitive object={model} scale={0.025} />
+    </group>
   )
 }
+
 
 
 function Deer({ position }) {
@@ -176,18 +213,19 @@ function Wheel({ pondPos }) {
 
 
 
-function Present({ npcPos }) {
+function Present({ position }) {
   const { scene } = useGLTF('/present.glb')
   const model = useMemo(() => scene.clone(true), [scene])
 
   return (
     <primitive
       object={model}
-      position={[npcPos[0] + 1.2, 0.4, npcPos[2] + 0.5]}
-      scale={0.02}   // 👈 smaller present
+      position={position}
+      scale={0.02}
     />
   )
 }
+
 
 function Slide({ pondPos }) {
   const { scene } = useGLTF('/slide.glb')
@@ -269,16 +307,56 @@ function Axolotl({ pos, rotY }) {
   )
 }
 
-function NPCAxolotl({ pos }) {
+function NPCAxolotl({ npcPos, playerPos, follow, setNpcPos }) {
   const { scene } = useGLTF('/axolotl.glb')
   const model = useMemo(() => scene.clone(true), [scene])
+  const group = useRef()
+
+  // store live position
+  const livePos = useRef([...npcPos])
+
+  useFrame(() => {
+    if (!group.current) return
+
+    if (follow) {
+      const speed = 0.05
+      const dx = playerPos[0] - livePos.current[0]
+      const dz = playerPos[2] - livePos.current[2]
+      const dist = Math.hypot(dx, dz)
+
+      if (dist > 1.2) {
+        livePos.current[0] += (dx / dist) * speed
+        livePos.current[2] += (dz / dist) * speed
+
+        // update react state occasionally
+        if (Math.random() < 0.05) {
+          setNpcPos([...livePos.current])
+        }
+      }
+
+      group.current.rotation.y = Math.atan2(dx, dz)
+    }
+
+    // sync visual position every frame
+    group.current.position.set(
+      livePos.current[0],
+      1.1,
+      livePos.current[2]
+    )
+  })
+
+  // sync start position
+  useEffect(() => {
+    livePos.current = [...npcPos]
+  }, [])
 
   return (
-    <group position={[pos[0], 1.1, pos[2]]} rotation={[0, -Math.PI / 2, 0]}>
-      <primitive object={model} scale={0.5} />
+    <group ref={group}>
+      <primitive object={model} scale={0.5} rotation = {[0,-Math.PI/2,0]}/>
     </group>
   )
 }
+
 
 
 function Cave({ position, playerPos }) {
@@ -551,13 +629,18 @@ export default function App() {
   const [showWASD, setShowWASD] = useState(true)
   const [controlsHidden, setControlsHidden] = useState(false)
   const [giftOpened, setGiftOpened] = useState(false)
+  const [npcPos, setNpcPos] = useState([6, 0, -3.8])
+  const [npcFollow, setNpcFollow] = useState(false)
+  const npcPosRef = useRef(npcPos)
+  useEffect(() => { npcPosRef.current = npcPos }, [npcPos])
+
+
 
 
   
 
   const cavePos = [6, 0, -6]
   const pondPos = [-6, 0, -4]
-  const npcPos = [6, 0, -3.8]
   const capyPos = [pondPos[0] + 5.5,0, pondPos[2] - 9]
   const WheelPos = [pondPos[0] - 9, 0, pondPos[2] - 14]
   const PlayerPos = [0, 0, -5]
@@ -566,6 +649,14 @@ export default function App() {
   const WftPos = [WheelPos[0] + 35, 0.25, WheelPos[2] - 15]
   const HecPos = [cavePos[0] -3, 0.3, cavePos[2] - 10]
   const deerPos = [-10, 0, -5]
+  const presentPos = useMemo(() => [
+    6 + 1.2,
+    0.4,
+    -3.8 + 0.5
+  ], [])
+
+  
+
 
 
   const nearNPC =
@@ -646,6 +737,11 @@ export default function App() {
         setControlsHidden(v => !v)
       }
 
+      if (e.key === 'f' && nearNPC) {
+          setNpcFollow(v => !v)
+        }
+
+
       setPos(([x, y, z]) => {
         if (e.key === 'w') { setRotY(Math.PI / 2); return [x, y, z - 0.4] }
         if (e.key === 's') { setRotY(-Math.PI / 2); return [x, y, z + 0.4] }
@@ -710,9 +806,23 @@ export default function App() {
           <Cave position={cavePos} playerPos={pos} />
           <TreeHouse pondPos={pondPos} />
           <Hector cavePos= {cavePos}/>
-          <NPCAxolotl pos={npcPos} />
-          {!giftOpened && <Present npcPos={npcPos} />}
-          {giftOpened && <Cat npcPos={npcPos} />}
+          <NPCAxolotl
+            npcPos={npcPos}
+            playerPos={pos}
+            follow={npcFollow}
+            setNpcPos={setNpcPos}
+          />
+          {!giftOpened && <Present position={presentPos} />}
+          {giftOpened && (
+          <Cat
+            npcPos={npcPos}
+            playerPos={pos}
+            npcFollow={npcFollow}
+            npcLivePos={npcPosRef}   // 👈 add below
+          />
+        )}
+
+
 
           <Deer position={deerPos} />
 
@@ -791,14 +901,25 @@ export default function App() {
       )}
 
       {!showWASD && nearNPC && (
-        <div className="ui">
-          Waooo! Its a Wuzulotl Happy buddayyy 🙀🙀 <br />
-          It is me Tuzulotl 🥰 and this is my smol cave 🪨<br />
-          Did you go to the pond🌊? Chinki is also there, try going inside water 🙀 <br />
-          Alsooooo i hab something for u 💖<br />
-          <b>Press E</b> to open
-        </div>
-      )}
+  <div className="ui">
+    {!npcFollow ? (
+      <>
+        Waooo! Its a Wuzulotl Happy buddayyy 🙀🙀 <br />
+        It is me Tuzulotl 🥰 and this is my smol cave 🪨<br />
+        Did you go to the pond🌊? Chinki is also there, try going inside water 🙀 <br />
+        Alsooooo i hab something for u 💖<br />
+        <b>Press E</b> to open<br/><br/>
+        <b>Press F</b> to make me follow 🐾
+      </>
+    ) : (
+      <>
+        Wuzuu I'm following you 🐾✨ <br/>
+        <b>Press F</b> to stop following
+      </>
+    )}
+  </div>
+)}
+
 
       {!showWASD && nearPond && (
         <div className="ui">
